@@ -1,10 +1,7 @@
 from client import bot
 import discord
 from classes import Part, Collab
-import sqlite3
-
-conn = sqlite3.connect('collab.db')
-cursor = conn.cursor()
+import db
 
 @bot.tree.command(
     name="make_collab",
@@ -18,8 +15,8 @@ async def make_collab(
     title: str,
     timestamps: str,
 ):
-    same_title = cursor.execute('''SELECT * FROM Collabs WHERE title = ?''', (title,)).fetchone()
-    
+    same_title = db.title_already_exists(title)
+
     if same_title:
         await interaction.response.send_message("Collab with that title already exists")
         return
@@ -48,25 +45,13 @@ async def take_part(
     collab_title: str,
     part_num: int,
 ):
-    collab_part = cursor.execute('''
-        SELECT * FROM Parts
-        WHERE collab_title = ?
-        AND part_num = ?
-        AND participant_id IS NULL''',
-        (collab_title, part_num)).fetchone()
+    collab_part = db.get_part(collab_title, part_num)
     
     if len(collab_part) == 0:
         await interaction.response.send_message("Part not found or is already taken")
         return
-    else:
-        cursor.execute('''
-            UPDATE Parts
-            SET participant_id = ?
-            WHERE collab_title = ?
-            AND part_num = ?''',
-            (interaction.user.id, collab_title, part_num))
-        conn.commit()
-        await interaction.response.send_message("done", ephemeral=True)
+
+    db.take_part(interaction.user.id, collab_title, part_num)
 
     part_msg = await interaction.channel.fetch_message(collab_part[5])
     part_embed = part_msg.embeds[0]
@@ -74,4 +59,5 @@ async def take_part(
     part_embed.set_thumbnail(url=interaction.user.avatar.url)
     part_embed.color = discord.Color.green()
 
-    await part_msg.edit(embed=part_embed)         
+    await part_msg.edit(embed=part_embed)  
+    await interaction.response.send_message("done", ephemeral=True)       

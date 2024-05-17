@@ -1,32 +1,7 @@
 import discord
-from client import bot
-import sqlite3
+import db
 
-conn = sqlite3.connect('collab.db')
-cursor = conn.cursor()
-
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS Parts (
-        id INTEGER PRIMARY KEY,
-        timestamp_pair TEXT, 
-        guild_id INTEGER, 
-        collab_title TEXT, 
-        part_num INTEGER, 
-        msg_id INTEGER, 
-        participant_id INTEGER
-    )''')
-
-cursor.execute('''
-    CREATE TABLE IF NOT EXISTS Collabs (
-        id INTEGER PRIMARY KEY,
-        title TEXT,
-        owner_id INTEGER,
-        channel_id INTEGER,
-        guild_id INTEGER
-    )''')
-
-conn.commit()
-
+db.create_tables()
 class Part:
     def __init__(self, 
                  timestamp_pair: str,  
@@ -46,11 +21,7 @@ class Part:
         else:
             participant_id = None
 
-        cursor.execute('''
-            INSERT INTO Parts (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id)
-            VALUES (?, ?, ?, ?, ?, ?)''',
-            (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id))
-        conn.commit()
+        db.part_init(timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id)
 
 class Collab:
     def __init__(self, 
@@ -65,11 +36,7 @@ class Collab:
         self.channel_id = channel_id
         self.guild_id = guild_id
 
-        cursor.execute('''
-            INSERT INTO Collabs (title, owner_id, channel_id, guild_id)
-            VALUES (?, ?, ?, ?)''',
-            (title, owner.id, channel_id, guild_id))       
-        conn.commit()          
+        db.collab_init(title, owner.id, channel_id, guild_id)         
 
     async def send(self, channel: discord.TextChannel):
         title_embed = discord.Embed()
@@ -91,16 +58,4 @@ class Collab:
             part_msg = await channel.send(embed=part_embed)
             part.msg_id = part_msg.id
 
-            cursor.execute('''
-                UPDATE Parts
-                SET msg_id = ?
-                WHERE collab_title = ?
-                AND part_num = ?''',
-                (part.msg_id, self.title, part.part_num))
-            
-        conn.commit()
-
-            
-        
-
-
+            db.set_msg_id(part_msg.id, self.title, part.part_num)
