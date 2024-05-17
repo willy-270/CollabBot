@@ -2,41 +2,59 @@ import discord
 import db
 
 db.create_tables()
+
 class Part:
     def __init__(self, 
                  timestamp_pair: str,  
                  guild_id: int, 
                  collab_title: str,
                  part_num: int,
-                 msg_id: int = None, 
-                 participant: discord.Member = None):
+                 msg: discord.Message = None,
+                 participant: discord.User = None):
         self.timestamp_pair = timestamp_pair
-        self.msg_id = msg_id
+        self.guild_id = guild_id
+        self.collab_title = collab_title
         self.part_num = part_num
         self.participant = participant
-        self.guild_id = guild_id
+        self.msg = msg
 
-        if participant:
-            participant_id = participant.id
-        else:
-            participant_id = None
+        db.part_init(timestamp_pair, guild_id, collab_title, part_num, None, None)
 
-        db.part_init(timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id)
+    async def take(self, user: discord.User) -> None:
+        self.participant = user
+        part_embed = self.msg.embeds[0]
+        part_embed.description = f"Timestamp: {self.timestamp_pair}\nParticipant: {self.participant.mention}"
+        part_embed.set_thumbnail(url=user.avatar.url)
+        part_embed.color = discord.Color.green()
+
+        db.take_part(self.participant.id, self.collab_title, self.part_num)
+
+        await self.msg.edit(embed=part_embed) 
 
 class Collab:
     def __init__(self, 
                  title: str, 
-                 parts: list[Part], 
                  owner: discord.Member, 
-                 channel_id: int, 
-                 guild_id: int):
+                 channel: discord.TextChannel, 
+                 guild_id: int,
+                 timestamp_pairs: str):
         self.title = title
-        self.parts = parts
         self.owner = owner
-        self.channel_id = channel_id
+        self.channel = channel
         self.guild_id = guild_id
 
-        db.collab_init(title, owner.id, channel_id, guild_id)         
+        timestamps = timestamp_pairs.split(", ")
+
+        parts = []
+        part_num = 1
+        for timestamp_pair in timestamps:
+            part = Part(timestamp_pair, guild_id, title, part_num)
+            parts.append(part)
+            part_num += 1
+
+        self.parts = parts
+
+        db.collab_init(title, owner.id, channel.id, guild_id)         
 
     async def send(self, channel: discord.TextChannel):
         title_embed = discord.Embed()

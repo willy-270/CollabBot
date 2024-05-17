@@ -1,4 +1,6 @@
 import sqlite3
+from client import bot
+import discord
 
 conn = sqlite3.connect('collab.db')
 cursor = conn.cursor()
@@ -26,7 +28,17 @@ def create_tables():
 
     conn.commit()
 
-def part_init(timestamp_pair: str, guild_id: int, collab_title: str, part_num: int, msg_id: int, participant_id: int):
+def part_init(timestamp_pair: str, guild_id: int, collab_title: str, part_num: int, msg: discord.Message, participant: discord.User):
+    if msg:
+        msg_id = msg.id
+    else:
+        msg_id = None
+
+    if participant:
+        participant_id = participant.id
+    else:
+        participant_id = None
+
     cursor.execute('''
             INSERT INTO Parts (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id)
             VALUES (?, ?, ?, ?, ?, ?)''',
@@ -50,18 +62,35 @@ def set_msg_id(msg_id: int, collab_title: str, part_num: int):
     conn.commit()
 
 def title_already_exists(title: str) -> bool:
-    r = cursor.execute('''SELECT * FROM Collabs WHERE title = ?''', (title,)).fetchone()
-    return bool(r)
-
-def get_part(collab_title: str, part_num: int):
-    return cursor.execute('''
+    return bool(cursor.execute('''SELECT * FROM Collabs WHERE title = ?''', (title,)).fetchone())
+    
+from classes import Part #to avoid circular import :( will fix beter later
+async def get_part(collab_title: str, part_num: int, guild_id: int) -> Part | None:
+    part_r = cursor.execute('''
         SELECT * FROM Parts
         WHERE collab_title = ?
         AND part_num = ?
-        AND participant_id IS NULL''',
-        (collab_title, part_num)).fetchone()
+        AND guild_id = ?''',
+        (collab_title, part_num, guild_id)).fetchone()
+    
+    channel_id = cursor.execute('''
+        SELECT * from Collabs
+        WHERE title = ?
+        AND guild_id = ?''',
+        (collab_title, guild_id)).fetchone()[3]
 
-def take_part(participant_id: int, collab_title: str, part_num: int):
+    if part_r:
+        if part_r[6] == None:
+            participant = None
+        else:
+            participant = await bot.fetch_user(part_r[6])
+        channel = bot.get_channel(channel_id)
+        message = await channel.fetch_message(part_r[5])
+        return Part(part_r[1], part_r[2], part_r[3], part_r[4], message, participant)
+    else:
+        return None
+
+def take_part(participant_id: int, collab_title: str, part_num: int) -> None:
     cursor.execute('''
             UPDATE Parts
             SET participant_id = ?

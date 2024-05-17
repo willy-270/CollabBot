@@ -1,1 +1,1 @@
-bot to streamline managing commands through discord
+bot to streamline managing collabs through discord
