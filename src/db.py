@@ -1,6 +1,7 @@
 import sqlite3
 from client import bot
 import discord
+from classes import Part
 
 conn = sqlite3.connect('collab.db')
 cursor = conn.cursor()
@@ -64,7 +65,6 @@ def set_msg_id(msg_id: int, collab_title: str, part_num: int):
 def title_already_exists(title: str) -> bool:
     return bool(cursor.execute('''SELECT * FROM Collabs WHERE title = ?''', (title,)).fetchone())
     
-from classes import Part #to avoid circular import :( will fix beter later
 async def get_part(collab_title: str, part_num: int, guild_id: int) -> Part | None:
     part_r = cursor.execute('''
         SELECT * FROM Parts

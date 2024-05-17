@@ -1,8 +1,6 @@
 import discord
 import db
 
-db.create_tables()
-
 class Part:
     def __init__(self, 
                  timestamp_pair: str,  
