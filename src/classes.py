@@ -16,7 +16,8 @@ class Part:
         self.participant = participant
         self.msg = msg
 
-        db.part_init(timestamp_pair, guild_id, collab_title, part_num, None, None)
+        if not db.part_already_exists(collab_title, part_num, guild_id):
+            db.part_init(timestamp_pair, guild_id, collab_title, part_num, msg, participant)
 
     def make_part_embed(self) -> discord.Embed:
         embed = discord.Embed()
@@ -35,7 +36,7 @@ class Part:
         self.participant = user
         part_embed = self.make_part_embed()
 
-        db.take_part(self.participant.id, self.collab_title, self.part_num)
+        db.update_part_participant(user.id, self.collab_title, self.part_num, self.guild_id)
 
         await self.msg.edit(embed=part_embed) 
 
@@ -43,7 +44,7 @@ class Part:
         self.participant = None
         part_embed = self.make_part_embed()
 
-        db.drop_part(self.collab_title, self.part_num)
+        db.update_part_participant(None, self.collab_title, self.part_num, self.guild_id)
 
         await self.msg.edit(embed=part_embed)
 
@@ -89,7 +90,7 @@ class Collab:
             part_msg = await self.channel.send(embed=part_embed)
             part.msg_id = part_msg.id
 
-            db.set_msg_id(part_msg.id, self.title, part.part_num)
+            db.set_msg_id(part_msg.id, self.title, part.part_num, self.guild_id)
 
 
 

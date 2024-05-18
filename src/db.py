@@ -53,13 +53,14 @@ def collab_init(title: str, owner_id: int, channel_id: int, guild_id: int):
             (title, owner_id, channel_id, guild_id))       
     conn.commit() 
 
-def set_msg_id(msg_id: int, collab_title: str, part_num: int):
+def set_msg_id(msg_id: int, collab_title: str, part_num: int, guild_id: int):
     cursor.execute('''
         UPDATE Parts
         SET msg_id = ?
         WHERE collab_title = ?
-        AND part_num = ?''',
-        (msg_id, collab_title, part_num))
+        AND part_num = ?
+        AND guild_id = ?''',
+        (msg_id, collab_title, part_num, guild_id))
     conn.commit()
 
 def title_already_exists(title: str, guild_id: int) -> bool:
@@ -97,23 +98,14 @@ async def get_part_in_server(collab_title: str, part_num: int, guild_id: int) ->
         return Part(part_r[1], part_r[2], part_r[3], part_r[4], message, participant)
     else:
         return None
-
-def take_part(participant_id: int, collab_title: str, part_num: int) -> None:
-    cursor.execute('''
-            UPDATE Parts
-            SET participant_id = ?
-            WHERE collab_title = ?
-            AND part_num = ?''',
-            (participant_id, collab_title, part_num))
-    conn.commit()
-
-def drop_part(collab_title: str, part_num: int) -> None:
-    cursor.execute('''
-            UPDATE Parts
-            SET participant_id = NULL
-            WHERE collab_title = ?
-            AND part_num = ?''',
-            (collab_title, part_num))
+    
+def update_part_participant(participant_id: int | None, collab_title: str, part_num: int, guild_id) -> None:
+    cursor.execute('''UPDATE Parts
+                      SET participant_id = ?
+                      WHERE collab_title = ?
+                      AND part_num = ?
+                      AND guild_id = ?''',
+                      (participant_id, collab_title, part_num, guild_id))
     conn.commit()
 
 def get_collab_titles(guild_id: int) -> list[str]:
@@ -121,4 +113,11 @@ def get_collab_titles(guild_id: int) -> list[str]:
         SELECT title FROM Collabs
         WHERE guild_id = ?''',
         (guild_id,)).fetchall()]
+
+def part_already_exists(collab_title: str, part_num: int, guild_id: int) -> bool:
+    return bool(cursor.execute('''SELECT * FROM Parts
+                               WHERE collab_title = ?
+                               AND part_num = ?
+                               AND guild_id = ?''', 
+                               (collab_title, part_num, guild_id,)).fetchone())
     
