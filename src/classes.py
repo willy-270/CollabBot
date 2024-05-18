@@ -48,6 +48,9 @@ class Part:
 
         await self.msg.edit(embed=part_embed)
 
+    async def delete_msg(self) -> None:
+        await self.msg.delete()
+
 class Collab:
     def __init__(self, 
                  title: str, 
@@ -59,6 +62,8 @@ class Collab:
         self.owner = owner
         self.channel = channel
         self.guild_id = guild_id
+        self.timestamp_pairs = timestamp_pairs
+        self.tite_msg = None
 
         timestamps = timestamp_pairs.split(", ")
 
@@ -71,7 +76,8 @@ class Collab:
 
         self.parts = parts
 
-        db.collab_init(title, owner.id, channel.id, guild_id)
+        if not db.title_already_exists(title, guild_id):
+            db.collab_init(title, owner.id, channel.id, guild_id, timestamp_pairs)
 
     def make_collab_title_embed(self) -> discord.Embed:
         embed = discord.Embed()
@@ -82,7 +88,8 @@ class Collab:
 
     async def send(self):
         title_embed = self.make_collab_title_embed()
-        await self.channel.send(embed=title_embed)
+        self.title_msg = await self.channel.send(embed=title_embed)
+        db.set_title_msg_id(self.title_msg.id, self.title, self.guild_id)
 
         for part in self.parts:
             part_embed = part.make_part_embed()
@@ -90,7 +97,13 @@ class Collab:
             part_msg = await self.channel.send(embed=part_embed)
             part.msg_id = part_msg.id
 
-            db.set_msg_id(part_msg.id, self.title, part.part_num, self.guild_id)
+            db.set_part_msg_id(part_msg.id, self.title, part.part_num, self.guild_id)
+
+    async def delete(self):
+        for part in self.parts:
+            await part.delete_msg()
+        await self.title_msg.delete()
+        db.delete_collab(self.title, self.guild_id)
 
 
 
