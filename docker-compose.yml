@@ -1,0 +1,5 @@
+services:
+  collabbot:
+    build: .
+    environment:
+      - TZ=America/Chicago
