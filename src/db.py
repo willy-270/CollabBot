@@ -62,8 +62,11 @@ def set_msg_id(msg_id: int, collab_title: str, part_num: int):
         (msg_id, collab_title, part_num))
     conn.commit()
 
-def title_already_exists(title: str) -> bool:
-    return bool(cursor.execute('''SELECT * FROM Collabs WHERE title = ?''', (title,)).fetchone())
+def title_already_exists(title: str, guild_id: int) -> bool:
+    return bool(cursor.execute('''SELECT * FROM Collabs 
+                               WHERE title = ?
+                               AND guild_id = ?''', 
+                               (title, guild_id,)).fetchone())
     
 async def get_part(collab_title: str, part_num: int, guild_id: int) -> Part | None:
     part_r = cursor.execute('''
@@ -73,11 +76,16 @@ async def get_part(collab_title: str, part_num: int, guild_id: int) -> Part | No
         AND guild_id = ?''',
         (collab_title, part_num, guild_id)).fetchone()
     
-    channel_id = cursor.execute('''
+    channel_id_r = cursor.execute('''
         SELECT * from Collabs
         WHERE title = ?
         AND guild_id = ?''',
-        (collab_title, guild_id)).fetchone()[3]
+        (collab_title, guild_id)).fetchone()
+    
+    if channel_id_r:
+        channel_id = channel_id_r[3]
+    else:
+        return None
 
     if part_r:
         if part_r[6] == None:

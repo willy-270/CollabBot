@@ -16,18 +16,17 @@ async def make_collab(
     timestamps: str,
     channel: discord.TextChannel
 ):
-    same_title = db.title_already_exists(title)
+    same_title = db.title_already_exists(title, interaction.guild.id)
 
     if same_title:
-        await interaction.response.send_message("Collab with that title already exists")
+        await interaction.response.send_message("Collab with that title already exists in this server")
         return
 
     collab = Collab(title, interaction.user, channel, interaction.guild.id, timestamps)
-    await collab.send(channel)
+    await collab.send()
 
     await interaction.response.send_message("done", ephemeral=True)
 
-    
 @bot.tree.command(
     name="take_part",
     description="Join a collab"
@@ -40,7 +39,7 @@ async def take_part(
     part = await db.get_part(collab_title, part_num, interaction.guild.id)
     
     if not part:
-        await interaction.response.send_message("Part not found")
+        await interaction.response.send_message("Part not found in this server")
         return
     
     if part.participant != None:

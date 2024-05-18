@@ -18,12 +18,22 @@ class Part:
 
         db.part_init(timestamp_pair, guild_id, collab_title, part_num, None, None)
 
+    def make_part_embed(self) -> discord.Embed:
+        embed = discord.Embed()
+        embed.title = f"Part {self.part_num}"
+        embed.description = f"Timestamp: {self.timestamp_pair}"
+        if self.participant != None:
+            embed.description += f"\nParticipant: {self.participant.mention}"
+            embed.set_thumbnail(url=self.participant.avatar.url)
+            embed.color = discord.Color.green()
+        else:
+            embed.description += "\nParticipant: None"
+        
+        return embed
+
     async def take(self, user: discord.User) -> None:
         self.participant = user
-        part_embed = self.msg.embeds[0]
-        part_embed.description = f"Timestamp: {self.timestamp_pair}\nParticipant: {self.participant.mention}"
-        part_embed.set_thumbnail(url=user.avatar.url)
-        part_embed.color = discord.Color.green()
+        part_embed = self.make_part_embed()
 
         db.take_part(self.participant.id, self.collab_title, self.part_num)
 
@@ -52,26 +62,26 @@ class Collab:
 
         self.parts = parts
 
-        db.collab_init(title, owner.id, channel.id, guild_id)         
+        db.collab_init(title, owner.id, channel.id, guild_id)
 
-    async def send(self, channel: discord.TextChannel):
-        title_embed = discord.Embed()
-        title_embed.title = self.title
-        title_embed.description = f"Owner: {self.owner.mention}"
-        await channel.send(embed=title_embed)
+    def make_collab_title_embed(self) -> discord.Embed:
+        embed = discord.Embed()
+        embed.title = self.title
+        embed.description = f"Owner: {self.owner.mention}"
+
+        return embed         
+
+    async def send(self):
+        title_embed = self.make_collab_title_embed()
+        await self.channel.send(embed=title_embed)
 
         for part in self.parts:
-            part_embed = discord.Embed()
-            part_embed.title = f"Part {part.part_num}"
-            part_embed.description = f"Timestamp: {part.timestamp_pair}"
-            if part.participant != None:
-                part_embed.description += f"\nParticipant: {part.participant.mention}"
-                part_embed.thumbnail = part.participant.avatar_url
-                part_embed.color = discord.Color.green()
-            else:
-                part_embed.description += "\nParticipant: None"
+            part_embed = part.make_part_embed()
 
-            part_msg = await channel.send(embed=part_embed)
+            part_msg = await self.channel.send(embed=part_embed)
             part.msg_id = part_msg.id
 
             db.set_msg_id(part_msg.id, self.title, part.part_num)
+
+
+
