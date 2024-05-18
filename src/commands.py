@@ -86,5 +86,31 @@ async def collab_title_autocomplete(
     current: str
 ) -> list[discord.app_commands.Choice]:
     collab_titles = db.get_collab_titles(interaction.guild.id)
+
+    return [discord.app_commands.Choice(name=title, value=title) for title in collab_titles if current.lower() in title.lower()]
+
+@bot.tree.command(
+    name="delete_collab",
+    description="Delete a collab"
+)
+async def delete_collab(
+    interaction: discord.Interaction,
+    collab_title: str
+):
+    owner_id = db.get_collab_owner_id(collab_title, interaction.guild.id)
+
+    if owner_id != interaction.user.id:
+        await interaction.response.send_message("You are not the owner of this collab")
+        return
     
+    db.delete_collab(collab_title, interaction.guild.id)
+    await interaction.response.send_message("done")
+
+@delete_collab.autocomplete("collab_title")
+async def collab_title_autocomplete(
+    interaction: discord.Interaction,
+    current: str
+) -> list[discord.app_commands.Choice]:
+    collab_titles = db.get_collab_titles(interaction.guild.id)
+
     return [discord.app_commands.Choice(name=title, value=title) for title in collab_titles if current.lower() in title.lower()]

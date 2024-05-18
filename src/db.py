@@ -120,4 +120,25 @@ def part_already_exists(collab_title: str, part_num: int, guild_id: int) -> bool
                                AND part_num = ?
                                AND guild_id = ?''', 
                                (collab_title, part_num, guild_id,)).fetchone())
+
+def get_collab_owner_id(collab_title: str, guild_id: int) -> int | None:
+    r = cursor.execute('''SELECT owner_id FROM Collabs
+                          WHERE title = ?
+                          AND guild_id = ?''',
+                          (collab_title, guild_id)).fetchone()
+    if r:
+        return r[0]
+    else:
+        return None
+
+def delete_collab(collab_title: str, guild_id: int) -> None:
+    cursor.execute('''DELETE FROM Collabs
+                      WHERE title = ?
+                      AND guild_id = ?''',
+                      (collab_title, guild_id))
+    cursor.execute('''DELETE FROM Parts
+                      WHERE collab_title = ?
+                      AND guild_id = ?''',
+                      (collab_title, guild_id))
+    conn.commit()
     
