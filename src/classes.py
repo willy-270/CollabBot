@@ -39,6 +39,14 @@ class Part:
 
         await self.msg.edit(embed=part_embed) 
 
+    async def drop(self) -> None:
+        self.participant = None
+        part_embed = self.make_part_embed()
+
+        db.drop_part(self.collab_title, self.part_num)
+
+        await self.msg.edit(embed=part_embed)
+
 class Collab:
     def __init__(self, 
                  title: str, 

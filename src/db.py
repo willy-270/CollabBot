@@ -68,7 +68,7 @@ def title_already_exists(title: str, guild_id: int) -> bool:
                                AND guild_id = ?''', 
                                (title, guild_id,)).fetchone())
     
-async def get_part(collab_title: str, part_num: int, guild_id: int) -> Part | None:
+async def get_part_in_server(collab_title: str, part_num: int, guild_id: int) -> Part | None:
     part_r = cursor.execute('''
         SELECT * FROM Parts
         WHERE collab_title = ?
@@ -106,4 +106,19 @@ def take_part(participant_id: int, collab_title: str, part_num: int) -> None:
             AND part_num = ?''',
             (participant_id, collab_title, part_num))
     conn.commit()
+
+def drop_part(collab_title: str, part_num: int) -> None:
+    cursor.execute('''
+            UPDATE Parts
+            SET participant_id = NULL
+            WHERE collab_title = ?
+            AND part_num = ?''',
+            (collab_title, part_num))
+    conn.commit()
+
+def get_collab_titles(guild_id: int) -> list[str]:
+    return [title[0] for title in cursor.execute('''
+        SELECT title FROM Collabs
+        WHERE guild_id = ?''',
+        (guild_id,)).fetchall()]
     
