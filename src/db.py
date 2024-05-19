@@ -15,7 +15,8 @@ def create_tables():
             collab_title TEXT, 
             part_num INTEGER, 
             msg_id INTEGER, 
-            participant_id INTEGER
+            participant_id INTEGER,
+            prog_status INTEGER
         )''')
 
     cursor.execute('''
@@ -38,7 +39,8 @@ parts_table = {
     "collab_title": 3,
     "part_num": 4,
     "msg_id": 5,
-    "participant_id": 6
+    "participant_id": 6,
+    "prog_status": 7
 }
 
 collabs_table = {
@@ -51,49 +53,49 @@ collabs_table = {
     "title_msg_id": 6
 }
 
-def part_init(timestamp_pair: str, guild_id: int, collab_title: str, part_num: int, msg: discord.Message, participant: discord.User):
-    if msg:
-        msg_id = msg.id
+def part_init(part: Part):
+    if part.msg:
+        msg_id = part.msg.id
     else:
         msg_id = None
 
-    if participant:
-        participant_id = participant.id
+    if part.participant:
+        participant_id = part.participant.id
     else:
         participant_id = None
 
     cursor.execute('''
-            INSERT INTO Parts (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id)
-            VALUES (?, ?, ?, ?, ?, ?)''',
-            (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id))
+            INSERT INTO Parts (timestamp_pair, guild_id, collab_title, part_num, msg_id, participant_id, prog_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)''',
+            (part.timestamp_pair, part.guild_id, part.collab_title, part.part_num, msg_id, participant_id, part.prog_status))
     conn.commit()
 
-def collab_init(title: str, owner_id: int, channel_id: int, guild_id: int, timestamp_pairs: str):
+def collab_init(collab: Collab):
     cursor.execute('''
             INSERT INTO Collabs (title, owner_id, channel_id, guild_id, timestamp_pairs)
             VALUES (?, ?, ?, ?, ?)''',
-            (title, owner_id, channel_id, guild_id, timestamp_pairs))       
+            (collab.title, collab.owner.id, collab.channel.id, collab.guild_id, collab.timestamp_pairs))       
     conn.commit() 
 
-def set_title_msg_id(msg_id: int, collab_title: str, guild_id: int):
+def set_title_msg_id(collab: Collab):
     cursor.execute('''UPDATE Collabs
                       SET title_msg_id = ?
                       WHERE title = ?
                       AND guild_id = ?''',
-                      (msg_id, collab_title, guild_id))
+                      (collab.title_msg.id, collab.title, collab.guild_id))
     conn.commit()
 
-def set_part_msg_id(msg_id: int, collab_title: str, part_num: int, guild_id: int):
+def set_part_msg_id(part: Part):
     cursor.execute('''
         UPDATE Parts
         SET msg_id = ?
         WHERE collab_title = ?
         AND part_num = ?
         AND guild_id = ?''',
-        (msg_id, collab_title, part_num, guild_id))
+        (part.msg.id, part.collab_title, part.part_num, part.guild_id))
     conn.commit()
 
-async def get_part_from_server(collab_title: str, part_num: int, guild_id: int) -> Part | None:
+async def get_part_from_guild(collab_title: str, part_num: int, guild_id: int) -> Part | None:
     part_r = cursor.execute('''
         SELECT * FROM Parts
         WHERE collab_title = ?
@@ -130,7 +132,7 @@ async def get_part_from_server(collab_title: str, part_num: int, guild_id: int) 
                 message, 
                 participant)
 
-async def get_collab_from_server(collab_title: str, guild_id: int) -> Collab | None:
+async def get_collab_from_guild(collab_title: str, guild_id: int) -> Collab | None:
     collab_r = cursor.execute('''
         SELECT * from Collabs
         WHERE title = ?
@@ -147,7 +149,7 @@ async def get_collab_from_server(collab_title: str, guild_id: int) -> Collab | N
     timestamps = collab_r[collabs_table["timestamp_pairs"]].split(", ")
 
     for timestamp_pair in timestamps:
-        part = await get_part_from_server(collab_title, len(parts) + 1, guild_id)
+        part = await get_part_from_guild(collab_title, len(parts) + 1, guild_id)
         parts.append(part)
 
     
@@ -161,27 +163,33 @@ async def get_collab_from_server(collab_title: str, guild_id: int) -> Collab | N
 
     return collab
     
-def update_part_participant(participant_id: int | None, collab_title: str, part_num: int, guild_id) -> None:
+def update_part_participant(part: Part) -> None:
+    if part.participant:
+        participant_id = part.participant.id
+    else:
+        participant_id = None
     cursor.execute('''UPDATE Parts
                       SET participant_id = ?
                       WHERE collab_title = ?
                       AND part_num = ?
                       AND guild_id = ?''',
-                      (participant_id, collab_title, part_num, guild_id))
+                      (participant_id, part.collab_title, part.part_num, part.guild_id))
     conn.commit()
 
-def part_already_exists(collab_title: str, part_num: int, guild_id: int) -> bool:
+    update_part_status(part)
+
+def part_already_exists(part: Part) -> bool:
     return bool(cursor.execute('''SELECT * FROM Parts
                                WHERE collab_title = ?
                                AND part_num = ?
                                AND guild_id = ?''', 
-                               (collab_title, part_num, guild_id,)).fetchone())
+                               (part.collab_title, part.part_num, part.guild_id,)).fetchone())
 
-def collab_already_exists(collab_title: str, guild_id: int) -> bool:
+def collab_already_exists(collab: Collab) -> bool:
     return bool(cursor.execute('''SELECT * FROM Collabs
                                WHERE title = ?
                                AND guild_id = ?''', 
-                               (collab_title, guild_id,)).fetchone())
+                               (collab.title, collab.guild_id,)).fetchone())
 
 def title_already_exists(title: str, guild_id: int) -> bool:
     return bool(cursor.execute('''SELECT * FROM Collabs 
@@ -199,15 +207,15 @@ def get_collab_owner_id(collab_title: str, guild_id: int) -> int | None:
     else:
         return None
 
-def delete_collab(collab_title: str, guild_id: int) -> None:
+def delete_collab(collab: Collab) -> None:
     cursor.execute('''DELETE FROM Collabs
                       WHERE title = ?
                       AND guild_id = ?''',
-                      (collab_title, guild_id))
+                      (collab.title, collab.guild_id))
     cursor.execute('''DELETE FROM Parts
                       WHERE collab_title = ?
                       AND guild_id = ?''',
-                      (collab_title, guild_id))
+                      (collab.title, collab.guild_id))
     conn.commit()
 
 def get_collab_titles(guild_id: int) -> list[str]:
@@ -215,3 +223,12 @@ def get_collab_titles(guild_id: int) -> list[str]:
         SELECT title FROM Collabs
         WHERE guild_id = ?''',
         (guild_id,)).fetchall()]
+
+def update_part_status(part: Part) -> None:
+    cursor.execute('''UPDATE Parts
+                      SET prog_status = ?
+                      WHERE collab_title = ?
+                      AND part_num = ?
+                      AND guild_id = ?''',
+                      (part.prog_status, part.collab_title, part.part_num, part.guild_id))
+    conn.commit()

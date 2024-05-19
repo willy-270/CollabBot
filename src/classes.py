@@ -8,43 +8,63 @@ class Part:
                  collab_title: str,
                  part_num: int,
                  msg: discord.Message = None,
-                 participant: discord.User = None):
+                 participant: discord.User = None,
+                 prog_status: int = None):
         self.timestamp_pair = timestamp_pair
         self.guild_id = guild_id
         self.collab_title = collab_title
         self.part_num = part_num
         self.participant = participant
         self.msg = msg
+        self.prog_status = prog_status
 
-        if not db.part_already_exists(collab_title, part_num, guild_id):
-            db.part_init(timestamp_pair, guild_id, collab_title, part_num, msg, participant)
+        if not db.part_already_exists(self):
+            db.part_init(self)
 
     def make_part_embed(self) -> discord.Embed:
         embed = discord.Embed()
-        embed.title = f"Part {self.part_num}"
-        embed.description = f"Timestamp: {self.timestamp_pair}"
+        embed.title = f"**Part {self.part_num}**"
+        embed.description = f"**{self.timestamp_pair}**"
         if self.participant != None:
-            embed.description += f"\nParticipant: {self.participant.mention}"
+            embed.description += f"\n{self.participant.mention}"
             embed.set_thumbnail(url=self.participant.avatar.url)
-            embed.color = discord.Color.green()
+            if self.prog_status == 0:
+                embed.color = discord.Color.red()
+                embed.description += "\n*🚫 No Progress*"
+            elif self.prog_status == 1:
+                embed.color = discord.Color.yellow()
+                embed.description += "\n*🟨 Progress Shown*"
+            else:
+                embed.color = discord.Color.green()
+                embed.description += "\n*✅ Complpeted*"
         else:
-            embed.description += "\nParticipant: None"
+            embed.description += "\n*Not taken*"
         
         return embed
 
     async def take(self, user: discord.User) -> None:
         self.participant = user
+        self.prog_status = 0
         part_embed = self.make_part_embed()
 
-        db.update_part_participant(user.id, self.collab_title, self.part_num, self.guild_id)
+        db.update_part_participant(self)
 
         await self.msg.edit(embed=part_embed) 
 
     async def drop(self) -> None:
         self.participant = None
+        self.prog_status = None
         part_embed = self.make_part_embed()
 
-        db.update_part_participant(None, self.collab_title, self.part_num, self.guild_id)
+        db.update_part_participant(self)
+
+        await self.msg.edit(embed=part_embed)
+
+    async def update_part_satus(self, status: int) -> None:
+        self.prog_status = status
+        part_embed = self.make_part_embed()
+
+        db.update_part_status(self)
 
         await self.msg.edit(embed=part_embed)
 
@@ -63,7 +83,7 @@ class Collab:
         self.channel = channel
         self.guild_id = guild_id
         self.timestamp_pairs = timestamp_pairs
-        self.tite_msg = None
+        self.title_msg = None
 
         timestamps = timestamp_pairs.split(", ")
 
@@ -76,8 +96,8 @@ class Collab:
 
         self.parts = parts
 
-        if not db.title_already_exists(title, guild_id):
-            db.collab_init(title, owner.id, channel.id, guild_id, timestamp_pairs)
+        if not db.collab_already_exists(self):
+            db.collab_init(self)
 
     def make_collab_title_embed(self) -> discord.Embed:
         embed = discord.Embed()
@@ -89,21 +109,20 @@ class Collab:
     async def send(self):
         title_embed = self.make_collab_title_embed()
         self.title_msg = await self.channel.send(embed=title_embed)
-        db.set_title_msg_id(self.title_msg.id, self.title, self.guild_id)
+        db.set_title_msg_id(self)
 
         for part in self.parts:
             part_embed = part.make_part_embed()
 
-            part_msg = await self.channel.send(embed=part_embed)
-            part.msg_id = part_msg.id
+            part.msg = await self.channel.send(embed=part_embed)
 
-            db.set_part_msg_id(part_msg.id, self.title, part.part_num, self.guild_id)
+            db.set_part_msg_id(part)
 
     async def delete(self):
         for part in self.parts:
             await part.delete_msg()
         await self.title_msg.delete()
-        db.delete_collab(self.title, self.guild_id)
+        db.delete_collab(self)
 
 
 
