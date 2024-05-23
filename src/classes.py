@@ -27,7 +27,7 @@ class Part:
         embed.description = f"**{self.timestamp_pair}**"
         if self.participant != None:
             embed.description += f"\n{self.participant.mention}"
-            embed.set_thumbnail(url=self.participant.avatar.url)
+            embed.set_thumbnail(url=self.participant.avatar.url if self.participant.avatar else self.participant.default_avatar.url)
             if self.prog_status == 0:
                 embed.color = discord.Color.red()
                 embed.description += "\n*🚫 No Progress*"
@@ -77,13 +77,15 @@ class Collab:
                  owner: discord.Member, 
                  channel: discord.TextChannel, 
                  guild_id: int,
-                 timestamp_pairs: str):
+                 timestamp_pairs: str,
+                 role: discord.Role = None):
         self.title = title
         self.owner = owner
         self.channel = channel
         self.guild_id = guild_id
         self.timestamp_pairs = timestamp_pairs
         self.title_msg = None
+        self.role = role
 
         timestamps = timestamp_pairs.split(", ")
 

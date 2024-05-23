@@ -27,7 +27,8 @@ def create_tables():
             channel_id INTEGER,
             guild_id INTEGER,
             timestamp_pairs TEXT,
-            title_msg_id INTEGER
+            title_msg_id INTEGER,
+            role_id INTEGER
         )''')
 
     conn.commit()
@@ -50,7 +51,8 @@ collabs_table = {
     "channel_id": 3,
     "guild_id": 4,
     "timestamp_pairs": 5,
-    "title_msg_id": 6
+    "title_msg_id": 6,
+    "role_id": 7
 }
 
 def part_init(part: Part):
@@ -72,9 +74,9 @@ def part_init(part: Part):
 
 def collab_init(collab: Collab):
     cursor.execute('''
-            INSERT INTO Collabs (title, owner_id, channel_id, guild_id, timestamp_pairs)
-            VALUES (?, ?, ?, ?, ?)''',
-            (collab.title, collab.owner.id, collab.channel.id, collab.guild_id, collab.timestamp_pairs))       
+            INSERT INTO Collabs (title, owner_id, channel_id, guild_id, timestamp_pairs, role_id)
+            VALUES (?, ?, ?, ?, ?, ?)''',
+            (collab.title, collab.owner.id, collab.channel.id, collab.guild_id, collab.timestamp_pairs, collab.role.id if collab.role else None))       
     conn.commit() 
 
 def set_title_msg_id(collab: Collab):
@@ -152,12 +154,14 @@ async def get_collab_from_guild(collab_title: str, guild_id: int) -> Collab | No
         part = await get_part_from_guild(collab_title, len(parts) + 1, guild_id)
         parts.append(part)
 
+    guild = bot.get_guild(guild_id)
     
     collab = Collab(collab_r[collabs_table["title"]], 
                     await bot.fetch_user(collab_r[collabs_table["owner_id"]]), 
                     channel, 
                     collab_r[collabs_table["guild_id"]],
-                    collab_r[collabs_table["timestamp_pairs"]])
+                    collab_r[collabs_table["timestamp_pairs"]],
+                    guild.get_role(collab_r[collabs_table["role_id"]]) if collab_r[collabs_table["role_id"]] else None)
     collab.parts = parts
     collab.title_msg = await channel.fetch_message(collab_r[collabs_table["title_msg_id"]])
 

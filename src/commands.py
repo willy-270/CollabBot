@@ -14,13 +14,15 @@ def reponse_embed(title):
     description="Create a new collab"
 )
 @discord.app_commands.describe(
-    timestamps="seperate by comma & space, ex: 0:00-0:10, 0:10-0:20, and so on",
+    timestamps="give start points of each part, serpated by comma and space ex: 0:00, 0:30, 1:00",
+    role_allowed_to_take_parts="leave empty for part participatns to only be changable by the host"
 )
 async def make_collab(
     interaction: discord.Interaction,
     title: str,
     timestamps: str,
-    channel: discord.TextChannel
+    channel: discord.TextChannel,
+    role_allowed_to_take_parts: discord.Role = None
 ):
     await interaction.response.send_message(embed=reponse_embed("Working..."), ephemeral=True)
 
@@ -31,7 +33,15 @@ async def make_collab(
         await interaction.edit_original_response(embed=reponse_embed("Collab with that title already exists in this server"))
         return
 
-    collab = Collab(title, interaction.user, channel, interaction.guild.id, timestamps)
+    def format_timestamps(timestamps: list[str]):
+        formatted_timestamps = []
+        for i in range(len(timestamps) - 1):
+            formatted_timestamps.append(f"{timestamps[i]} - {timestamps[i+1]}")
+        return ", ".join(formatted_timestamps)
+    
+    formatted_timestamps = format_timestamps(timestamps.split(", "))
+
+    collab = Collab(title, interaction.user, channel, interaction.guild.id, formatted_timestamps, role_allowed_to_take_parts)
     await collab.send()
 
     await interaction.edit_original_response(embed=reponse_embed("done"))
@@ -46,6 +56,19 @@ async def take_part(
     part_num: int
 ):
     await interaction.response.send_message(embed=reponse_embed("Working..."))
+
+    collab = await db.get_collab_from_guild(collab_title, interaction.guild.id)
+
+    if not collab:
+        await interaction.edit_original_response(embed=reponse_embed("Collab not found in this server"))
+        return
+    
+    if collab.role not in interaction.user.roles:
+        if collab.owner == interaction.user:
+            pass
+        else:
+            await interaction.edit_original_response(embed=reponse_embed("You do not have the role required to take parts in this collab"))
+            return
 
     part = await db.get_part_from_guild(collab_title, part_num, interaction.guild.id)
     
@@ -70,6 +93,16 @@ async def drop_part(
     part_num: int,
 ):
     await interaction.response.send_message(embed=reponse_embed("Working..."))
+
+    collab = await db.get_collab_from_guild(collab_title, interaction.guild.id)
+
+    if not collab:
+        await interaction.edit_original_response(embed=reponse_embed("Collab not found in this server"))
+        return
+    
+    if collab.role == None:
+        await interaction.edit_original_response(embed=reponse_embed("Only the host can remove participants from this collab"))
+        return
 
     part = await db.get_part_from_guild(collab_title, part_num, interaction.guild.id)
     
