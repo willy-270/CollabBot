@@ -15,14 +15,17 @@ def reponse_embed(title):
 )
 @discord.app_commands.describe(
     timestamps="give start points of each part, serpated by comma and space ex: 0:00, 0:30, 1:00",
-    role_allowed_to_take_parts="leave empty for part participatns to only be changable by the host"
+    role_allowed_to_take_parts="leave empty for part participatns to only be changable by the host",
+    gc_per_part="leave empty for no specified g&c per part"
 )
 async def make_collab(
     interaction: discord.Interaction,
     title: str,
     timestamps: str,
     channel: discord.TextChannel,
-    role_allowed_to_take_parts: discord.Role = None
+    role_allowed_to_take_parts: discord.Role = None,
+    gc_per_part: int = None,
+    yt_link_to_song: str = None
 ):
     await interaction.response.send_message(embed=reponse_embed("Working..."), ephemeral=True)
 
@@ -41,7 +44,7 @@ async def make_collab(
     
     formatted_timestamps = format_timestamps(timestamps.split(", "))
 
-    collab = Collab(title, interaction.user, channel, interaction.guild.id, formatted_timestamps, role_allowed_to_take_parts)
+    collab = Collab(title, interaction.user, channel, interaction.guild.id, formatted_timestamps, role_allowed_to_take_parts, gc_per_part, yt_link_to_song)
     await collab.send()
 
     await interaction.edit_original_response(embed=reponse_embed("done"))
@@ -177,7 +180,7 @@ async def update_part_status(
         await interaction.edit_original_response(embed=reponse_embed("Part is not taken"))
         return
 
-    await part.update_part_satus(status.value)
+    await part.update_satus(status.value)
     await interaction.edit_original_response(embed=reponse_embed("done"))
 
 def collab_title_autocomplete(command_func):

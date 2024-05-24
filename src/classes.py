@@ -9,7 +9,9 @@ class Part:
                  part_num: int,
                  msg: discord.Message = None,
                  participant: discord.User = None,
-                 prog_status: int = None):
+                 prog_status: int = None,
+                 gc_range: str = None,
+                 yt_link: str = None):
         self.timestamp_pair = timestamp_pair
         self.guild_id = guild_id
         self.collab_title = collab_title
@@ -17,28 +19,37 @@ class Part:
         self.participant = participant
         self.msg = msg
         self.prog_status = prog_status
+        self.gc_range = gc_range
+        self.yt_link = yt_link
 
         if not db.part_already_exists(self):
             db.part_init(self)
 
     def make_part_embed(self) -> discord.Embed:
         embed = discord.Embed()
+        starting_time_seconds = int(self.timestamp_pair.split(" - ")[0].split(":")[0]) * 60 + int(self.timestamp_pair.split(" - ")[0].split(":")[1])
         embed.title = f"**Part {self.part_num}**"
-        embed.description = f"**{self.timestamp_pair}**"
+        if self.yt_link:
+            embed.description = f"**[{self.timestamp_pair}]({self.yt_link + "&t=" + str(starting_time_seconds)})**"
+        else:
+            embed.description = f"**{self.timestamp_pair}**"
         if self.participant != None:
             embed.description += f"\n{self.participant.mention}"
             embed.set_thumbnail(url=self.participant.avatar.url if self.participant.avatar else self.participant.default_avatar.url)
             if self.prog_status == 0:
                 embed.color = discord.Color.red()
-                embed.description += "\n*🚫 No Progress*"
+                embed.description += "\n*No Progress 🚫*"
             elif self.prog_status == 1:
                 embed.color = discord.Color.yellow()
-                embed.description += "\n*🟨 Progress Shown*"
+                embed.description += "\n*Progress Shown 🟨*"
             else:
                 embed.color = discord.Color.green()
-                embed.description += "\n*✅ Complpeted*"
+                embed.description += "\n*Complpeted ✅*"
         else:
             embed.description += "\n*Not taken*"
+
+        if self.gc_range:
+            embed.description += f"\nG&C: {self.gc_range}"
         
         return embed
 
@@ -47,26 +58,23 @@ class Part:
         self.prog_status = 0
         part_embed = self.make_part_embed()
 
-        db.update_part_participant(self)
-
         await self.msg.edit(embed=part_embed) 
+        db.update_part_participant(self)
 
     async def drop(self) -> None:
         self.participant = None
         self.prog_status = None
         part_embed = self.make_part_embed()
 
+        await self.msg.edit(embed=part_embed)
         db.update_part_participant(self)
 
-        await self.msg.edit(embed=part_embed)
-
-    async def update_part_satus(self, status: int) -> None:
+    async def update_satus(self, status: int) -> None:
         self.prog_status = status
         part_embed = self.make_part_embed()
 
-        db.update_part_status(self)
-
         await self.msg.edit(embed=part_embed)
+        db.update_part_status(self)
 
     async def delete_msg(self) -> None:
         await self.msg.delete()
@@ -78,7 +86,9 @@ class Collab:
                  channel: discord.TextChannel, 
                  guild_id: int,
                  timestamp_pairs: str,
-                 role: discord.Role = None):
+                 role: discord.Role = None,
+                 gc_per_part: int = 0,
+                 yt_link: str = None):
         self.title = title
         self.owner = owner
         self.channel = channel
@@ -86,13 +96,19 @@ class Collab:
         self.timestamp_pairs = timestamp_pairs
         self.title_msg = None
         self.role = role
+        self.gc_per_part = gc_per_part
+        self.yt_link = yt_link
 
         timestamps = timestamp_pairs.split(", ")
 
         parts = []
         part_num = 1
         for timestamp_pair in timestamps:
-            part = Part(timestamp_pair, guild_id, title, part_num)
+            if gc_per_part:
+                gc_range = f"{gc_per_part * (part_num - 1) + 1} - {gc_per_part * part_num}"
+            else:
+                gc_range = None
+            part = Part(timestamp_pair, guild_id, title, part_num, gc_range=gc_range, yt_link=yt_link)
             parts.append(part)
             part_num += 1
 
@@ -105,6 +121,9 @@ class Collab:
         embed = discord.Embed()
         embed.title = self.title
         embed.description = f"Owner: {self.owner.mention}"
+        if self.yt_link:
+            embed.description += f"\n[Song]({self.yt_link})"
+        embed.set_thumbnail(url=self.owner.avatar.url if self.owner.avatar else self.owner.default_avatar.url)
 
         return embed         
 
