@@ -30,7 +30,7 @@ class Part:
         starting_time_seconds = int(self.timestamp_pair.split(" - ")[0].split(":")[0]) * 60 + int(self.timestamp_pair.split(" - ")[0].split(":")[1])
         embed.title = f"**Part {self.part_num}**"
         if self.yt_link:
-            embed.description = f"**[{self.timestamp_pair}]({self.yt_link + "&t=" + str(starting_time_seconds)})**"
+            embed.description = f"[{self.timestamp_pair}]({self.yt_link}&t={str(starting_time_seconds)})"
         else:
             embed.description = f"**{self.timestamp_pair}**"
         if self.participant != None:
