@@ -53,17 +53,9 @@ class Part:
         
         return embed
 
-    async def take(self, user: discord.User) -> None:
+    async def update_participant(self, user: discord.User | None) -> None:
         self.participant = user
-        self.prog_status = 0
-        part_embed = self.make_part_embed()
-
-        await self.msg.edit(embed=part_embed) 
-        db.update_part_participant(self)
-
-    async def drop(self) -> None:
-        self.participant = None
-        self.prog_status = None
+        self.prog_status = None if user == None else 0
         part_embed = self.make_part_embed()
 
         await self.msg.edit(embed=part_embed)
@@ -88,7 +80,8 @@ class Collab:
                  timestamp_pairs: str,
                  role: discord.Role = None,
                  gc_per_part: int = 0,
-                 yt_link: str = None):
+                 yt_link: str = None,
+                 max_parts_per_user: int = None):
         self.title = title
         self.owner = owner
         self.channel = channel
@@ -98,6 +91,7 @@ class Collab:
         self.role = role
         self.gc_per_part = gc_per_part
         self.yt_link = yt_link
+        self.max_parts_per_user = max_parts_per_user
 
         timestamps = timestamp_pairs.split(", ")
 
@@ -105,7 +99,10 @@ class Collab:
         part_num = 1
         for timestamp_pair in timestamps:
             if gc_per_part:
-                gc_range = f"{gc_per_part * (part_num - 1) + 1} - {gc_per_part * part_num}"
+                if part_num == 1:
+                    gc_range = f"4 - {gc_per_part}"
+                else:
+                    gc_range = f"{gc_per_part * (part_num - 1) + 1} - {gc_per_part * part_num}"
             else:
                 gc_range = None
             part = Part(timestamp_pair, guild_id, title, part_num, gc_range=gc_range, yt_link=yt_link)

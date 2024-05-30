@@ -32,7 +32,8 @@ def create_tables():
             title_msg_id INTEGER,
             role_id INTEGER,
             gc_per_part INTEGER,
-            yt_link TEXT
+            yt_link TEXT,
+            max_parts_per_user INTEGER
         )''')
 
     conn.commit()
@@ -61,6 +62,7 @@ collabs_table = {
     "role_id": 7,
     "gc_per_part": 8,
     "yt_link": 9,
+    "max_parts_per_user": 10
 }
 
 def part_init(part: Part):
@@ -82,9 +84,9 @@ def part_init(part: Part):
 
 def collab_init(collab: Collab):
     cursor.execute('''
-            INSERT INTO Collabs (title, owner_id, channel_id, guild_id, timestamp_pairs, role_id, gc_per_part, yt_link)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-            (collab.title, collab.owner.id, collab.channel.id, collab.guild_id, collab.timestamp_pairs, collab.role.id if collab.role else None, collab.gc_per_part, collab.yt_link))       
+            INSERT INTO Collabs (title, owner_id, channel_id, guild_id, timestamp_pairs, role_id, gc_per_part, yt_link, max_parts_per_user)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+            (collab.title, collab.owner.id, collab.channel.id, collab.guild_id, collab.timestamp_pairs, collab.role.id if collab.role else None, collab.gc_per_part, collab.yt_link, collab.max_parts_per_user))       
     conn.commit() 
 
 def set_title_msg_id(collab: Collab):
@@ -174,7 +176,9 @@ async def get_collab_from_guild(collab_title: str, guild_id: int) -> Collab | No
                     collab_r[collabs_table["timestamp_pairs"]],
                     guild.get_role(collab_r[collabs_table["role_id"]]) if collab_r[collabs_table["role_id"]] else None,
                     collab_r[collabs_table["gc_per_part"]],
-                    collab_r[collabs_table["yt_link"]])
+                    collab_r[collabs_table["yt_link"]], 
+                    collab_r[collabs_table["max_parts_per_user"]])
+
     collab.parts = parts
     collab.title_msg = await channel.fetch_message(collab_r[collabs_table["title_msg_id"]])
 

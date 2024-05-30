@@ -21,6 +21,8 @@ parameters:
     - The amount of grouos and colors given to each part
 - **yt_link_to_song** (optional)
     - if provided, the part messages will include hyperlinks to the song at the part timestamp, it will also be included in the title message
+- **max_parts_per_user**
+    - max number of parts a user can take, if not provided, there is no limit, /update_part_partcipant bypasses this limit as well as /take_part if user is owner
 
 This will then send the list into the specified channel
 
@@ -58,3 +60,17 @@ parameters:
 - **collab_title**
 
 Will delete the collab and all of its parts, only usable by the owner of the collab
+
+---
+
+### /update_part_participant
+
+parameters:
+
+- **collab_title**
+- **part_number**
+- **participant** (optional)
+    - if not provided, will remove the participant from the part
+
+Will update the participant of the part, only usable by the owner of the collab
+

@@ -25,7 +25,8 @@ async def make_collab(
     channel: discord.TextChannel,
     role_allowed_to_take_parts: discord.Role = None,
     gc_per_part: int = None,
-    yt_link_to_song: str = None
+    yt_link_to_song: str = None,
+    max_parts_per_user: int = None
 ):
     await interaction.response.send_message(embed=reponse_embed("Working..."), ephemeral=True)
 
@@ -44,7 +45,7 @@ async def make_collab(
     
     formatted_timestamps = format_timestamps(timestamps.split(", "))
 
-    collab = Collab(title, interaction.user, channel, interaction.guild.id, formatted_timestamps, role_allowed_to_take_parts, gc_per_part, yt_link_to_song)
+    collab = Collab(title, interaction.user, channel, interaction.guild.id, formatted_timestamps, role_allowed_to_take_parts, gc_per_part, yt_link_to_song, max_parts_per_user)
     await collab.send()
 
     await interaction.edit_original_response(embed=reponse_embed("done"))
@@ -72,6 +73,19 @@ async def take_part(
         else:
             await interaction.edit_original_response(embed=reponse_embed("You do not have the role required to take parts in this collab"))
             return
+        
+    parts_taken = 0
+
+    for part in collab.parts:
+        if part.participant == interaction.user:
+            parts_taken += 1
+
+    if collab.max_parts_per_user and parts_taken >= collab.max_parts_per_user:
+        if collab.owner == interaction.user:
+            pass
+        else:
+            await interaction.edit_original_response(embed=reponse_embed("You have reached the max amount of parts you can take in this collab"))
+            return
 
     part = await db.get_part_from_guild(collab_title, part_num, interaction.guild.id)
     
@@ -83,7 +97,7 @@ async def take_part(
         await interaction.edit_original_response(embed=reponse_embed("Part already taken"))
         return
 
-    await part.take(interaction.user)
+    await part.update_participant(interaction.user)
     await interaction.edit_original_response(embed=reponse_embed("done"))
 
 @bot.tree.command(
@@ -117,7 +131,7 @@ async def drop_part(
         await interaction.edit_original_response(embed=reponse_embed("Part is either taken by someone else or is already empty"))
         return
 
-    await part.drop()
+    await part.update_participant(None)
     await interaction.edit_original_response(embed=reponse_embed("done"))
 
 @bot.tree.command(
@@ -183,6 +197,40 @@ async def update_part_status(
     await part.update_satus(status.value)
     await interaction.edit_original_response(embed=reponse_embed("done"))
 
+@bot.tree.command(
+    name="update_part_participant",
+    description="Delete a part"
+)
+@discord.app_commands.describe(
+    participant="leave empty to remove the participant"
+)
+async def update_part_participant(
+    interaction: discord.Interaction,
+    collab_title: str,
+    part_num: int,
+    participant: discord.User = None
+):
+    await interaction.response.send_message(embed=reponse_embed("Working..."))
+
+    collab = await db.get_collab_from_guild(collab_title, interaction.guild.id)
+
+    if not collab:
+        await interaction.edit_original_response(embed=reponse_embed("Collab not found in this server"))
+        return
+    
+    if collab.owner != interaction.user:
+        await interaction.edit_original_response(embed=reponse_embed("You are not the owner of this collab"))
+        return
+
+    part = await db.get_part_from_guild(collab_title, part_num, interaction.guild.id)
+
+    if not part:
+        await interaction.edit_original_response(embed=reponse_embed("part_num out of range"))
+        return
+
+    await part.update_participant(participant)
+    await interaction.edit_original_response(embed=reponse_embed("done"))
+
 def collab_title_autocomplete(command_func):
     '''takes in a command function, funcion must have collab_title: str as a parameter
     returns an autocomplete function for that command function
@@ -201,4 +249,4 @@ collab_title_autocomplete(take_part)
 collab_title_autocomplete(drop_part)
 collab_title_autocomplete(delete_collab)
 collab_title_autocomplete(update_part_status)
-    
+collab_title_autocomplete(update_part_participant)
