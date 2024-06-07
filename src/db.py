@@ -135,7 +135,11 @@ async def get_part_from_guild(collab_title: str, part_num: int, guild_id: int) -
         participant = await bot.fetch_user(part_r[parts_table["participant_id"]])
 
     channel = bot.get_channel(channel_id)
-    message = await channel.fetch_message(part_r[parts_table["msg_id"]])
+
+    try:
+        message = await channel.fetch_message(part_r[parts_table["msg_id"]])
+    except:
+        message = None
     
     return Part(part_r[parts_table["timestamp_pair"]], 
                 part_r[parts_table["guild_id"]], 
@@ -180,7 +184,11 @@ async def get_collab_from_guild(collab_title: str, guild_id: int) -> Collab | No
                     collab_r[collabs_table["max_parts_per_user"]])
 
     collab.parts = parts
-    collab.title_msg = await channel.fetch_message(collab_r[collabs_table["title_msg_id"]])
+
+    try:
+        collab.title_msg = await channel.fetch_message(collab_r[collabs_table["title_msg_id"]])
+    except:
+        collab.title_msg = None
 
     return collab
     
@@ -253,3 +261,18 @@ def update_part_status(part: Part) -> None:
                       AND guild_id = ?''',
                       (part.prog_status, part.collab_title, part.part_num, part.guild_id))
     conn.commit()
+
+async def get_collab_from_msg_id(msg_id: int) -> Collab | None:
+    r = cursor.execute('''SELECT collab_title, guild_id FROM Parts
+                          WHERE msg_id = ?''',
+                          (msg_id,)).fetchone()
+    if not r:
+        r = cursor.execute('''SELECT title, guild_id FROM Collabs
+                              WHERE title_msg_id = ?''',
+                              (msg_id,)).fetchone()
+    if not r:
+        return None
+        
+    collab_title = r[0]
+    guild_id = r[1]
+    return await get_collab_from_guild(collab_title, guild_id)

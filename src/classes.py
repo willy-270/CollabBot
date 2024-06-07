@@ -69,7 +69,10 @@ class Part:
         db.update_part_status(self)
 
     async def delete_msg(self) -> None:
-        await self.msg.delete()
+        try:
+            await self.msg.delete()
+        except:
+            pass
 
 class Collab:
     def __init__(self, 
@@ -136,11 +139,16 @@ class Collab:
 
             db.set_part_msg_id(part)
 
-    async def delete(self):
+    async def delete(self, delete_from_db: bool = True):
         for part in self.parts:
             await part.delete_msg()
-        await self.title_msg.delete()
-        db.delete_collab(self)
+        try:
+            await self.title_msg.delete()
+        except discord.errors.NotFound:
+            pass
+        
+        if delete_from_db:
+            db.delete_collab(self)
 
 
 
